@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ZEUS CAST for Linux
+Comment=Control the LCD on your GAMDIAS cooler
+Exec=@BIN@ gui
+Icon=video-display
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=cooler;lcd;gamdias;aio;

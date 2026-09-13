@@ -1,0 +1,5 @@
+# GAMDIAS LCD coolers driven by ZEUS CAST / zeuscast-linux.
+# Lets the logged-in user open the serial port (uaccess) and keeps
+# ModemManager from probing the port with AT commands.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1b80", ATTRS{idProduct}=="b547|b53d|b53b", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1b80", ATTRS{idProduct}=="b547|b53d|b53b", ENV{ID_MM_DEVICE_IGNORE}="1", TAG+="uaccess", SYMLINK+="gamdias-lcd"

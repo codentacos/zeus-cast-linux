@@ -1,0 +1,11 @@
+[Unit]
+Description=GAMDIAS LCD cooler display (zeuscast)
+Documentation=file://%h/.local/share/zeuscast/README.md
+
+[Service]
+ExecStart=%h/.local/bin/zeuscast daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
