@@ -20,6 +20,7 @@ DEFAULTS: dict = {
     "update_interval": 2.0,
     "background": {"path": None, "mode": "fill", "uploaded_md5": None},
     "start_minimized": False,
+    "restore_background": True,  # re-send the saved background whenever the cooler connects
 }
 
 

@@ -75,6 +75,11 @@ Or open *ZEUS CAST for Linux* from the app menu.
 - **Background:** upload an image or video.
 - **Device:** brightness, rotation, startup screen and the built-in clock.
 
+The cooler forgets its background when it loses power, so zeuscast re-sends the
+saved background every time it connects (turn this off under *Settings*). For
+that to happen after a reboot, zeuscast has to start on its own: tick *Launch
+when I log in*, or use the background service below.
+
 Closing the window keeps it running in the tray so the stats stay live. GNOME
 needs the AppIndicator extension for a tray; without one, closing the window
 quits.
@@ -87,7 +92,9 @@ Set things up once in the GUI (or with `zeuscast theme`), quit the GUI, then:
 systemctl --user enable --now zeuscast
 ```
 
-The service reloads `~/.config/zeuscast/config.json` whenever it changes. Only
+The service reloads `~/.config/zeuscast/config.json` whenever it changes, and
+re-sends the saved background whenever it connects to the cooler (e.g. after a
+reboot). Only
 one program can use the cooler at a time, so stop the service before opening the
 GUI.
 
