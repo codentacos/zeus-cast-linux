@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import logging
 import signal
@@ -133,7 +134,7 @@ def cmd_background(args, config: Config) -> int:
         upload = device.set_background_video if is_video else device.set_background_image
         upload(data, progress=progress)
         print(file=sys.stderr)
-    config["background"] = {"path": str(Path(args.file).resolve()), "mode": mode, "uploaded_md5": None}
+    config["background"] = {"path": str(Path(args.file).resolve()), "mode": mode, "uploaded_md5": hashlib.md5(data).hexdigest()}
     config.save()
     return 0
 

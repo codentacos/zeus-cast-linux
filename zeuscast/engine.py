@@ -52,13 +52,41 @@ class Listener:
         pass
 
 
+def _cached_background(is_video: bool) -> Path:
+    return cache_dir() / ("background.mp4" if is_video else "background.jpg")
+
+
 def prepare_background(path: str | Path, model: Model, mode: str) -> tuple[bytes, bool]:
-    """Returns (file bytes, is_video) ready to upload."""
+    """Returns (file bytes, is_video) ready to upload, and keeps a copy in the cache for restores."""
     if media.is_video(path):
-        output = cache_dir() / "background.mp4"
+        output = _cached_background(True)
         media.prepare_video(path, output, model.width, model.height, mode)
         return output.read_bytes(), True
-    return media.prepare_image(path, model.width, model.height, mode), False
+    data = media.prepare_image(path, model.width, model.height, mode)
+    try:
+        _cached_background(False).write_bytes(data)
+    except OSError as e:  # the cache only saves work later; the upload can still go ahead
+        log.warning("Can't cache the prepared background: %s", e)
+    return data, False
+
+
+def cached_background(path: str | Path, model: Model, mode: str, expected_md5: str | None) -> tuple[bytes, bool]:
+    """Like prepare_background, but reuses the cached copy of the last upload when its MD5 still matches.
+
+    This keeps reconnects (e.g. after a reboot) from re-running ffmpeg, and still works if the
+    source file has been moved since it was uploaded.
+    """
+    if expected_md5:
+        for is_video in (media.is_video(path), not media.is_video(path)):
+            try:
+                data = _cached_background(is_video).read_bytes()
+            except OSError:
+                continue
+            if hashlib.md5(data).hexdigest() == expected_md5:
+                return data, is_video
+    if not Path(path).exists():
+        raise media.MediaError(f"Background {path} no longer exists; choose it again")
+    return prepare_background(path, model, mode)
 
 
 def render_theme_overlay(config: Config, snapshot: Snapshot | None, model: Model, now: dt.datetime | None = None):
@@ -171,16 +199,25 @@ class Engine:
         self.submit("Factory reset", lambda d: d.factory_reset())
 
     def upload_background(self, path: str | Path, mode: str) -> None:
+        self.submit(f"Upload background {Path(path).name}", self._background_action(path, mode, use_cache=False))
+
+    def _background_action(self, path: str | Path, mode: str, use_cache: bool) -> Callable[[LCDDevice], None]:
         def action(device: LCDDevice) -> None:
-            data, is_video = prepare_background(path, device.model, mode)
+            if use_cache:
+                expected = self.config["background"].get("uploaded_md5")
+                data, is_video = cached_background(path, device.model, mode, expected)
+            else:
+                data, is_video = prepare_background(path, device.model, mode)
             if is_video:
                 device.set_background_video(data, progress=self.listener.upload_progress)
             else:
                 device.set_background_image(data, progress=self.listener.upload_progress)
-            self.config["background"] = {"path": str(path), "mode": mode, "uploaded_md5": hashlib.md5(data).hexdigest()}
-            self.config.save()
+            md5 = hashlib.md5(data).hexdigest()
+            if self.config["background"] != {"path": str(path), "mode": mode, "uploaded_md5": md5}:
+                self.config["background"] = {"path": str(path), "mode": mode, "uploaded_md5": md5}
+                self.config.save()
 
-        self.submit(f"Upload background {Path(path).name}", action)
+        return action
 
     # Engine thread
 
@@ -233,7 +270,17 @@ class Engine:
         self._render_now = True
         self._set_status(True, f"Connected to {device.model.name} on {device.port} (app {info.app_version or '?'})")
         self.listener.info_received(info)
+        self._restore_background()
         return True
+
+    def _restore_background(self) -> None:
+        """Queue the saved background again: the cooler forgets it when it loses power (e.g. a reboot)."""
+        background = self.config["background"]
+        if not self.config["restore_background"] or not background.get("path"):
+            return
+        path, mode = background["path"], background.get("mode") or "fill"
+        # Tasks run before the next overlay render, so the background goes up first.
+        self.submit(f"Restore background {Path(path).name}", self._background_action(path, mode, use_cache=True))
 
     def _drop_device(self, reason: str) -> None:
         if self.device:

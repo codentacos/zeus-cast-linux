@@ -338,6 +338,9 @@ class MainWindow(QMainWindow):
         minimized = QCheckBox("Start minimized to the system tray")
         minimized.setChecked(bool(self.config["start_minimized"]))
         minimized.toggled.connect(lambda checked: self._set_config("start_minimized", checked, refresh=False))
+        restore = QCheckBox("Re-send the background when the cooler connects (needed after a reboot)")
+        restore.setChecked(bool(self.config["restore_background"]))
+        restore.toggled.connect(lambda checked: self._set_config("restore_background", checked, refresh=False))
         autostart = QCheckBox("Launch when I log in")
         autostart.setChecked(self._autostart_file().exists())
         autostart.toggled.connect(self._set_autostart)
@@ -355,6 +358,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(form)
         layout.addWidget(minimized)
         layout.addWidget(autostart)
+        layout.addWidget(restore)
         layout.addSpacing(12)
         layout.addWidget(tip)
         layout.addStretch()
@@ -572,6 +576,9 @@ class MainWindow(QMainWindow):
             self.upload_button.setEnabled(True)
             self.upload_progress.hide()
             self.background_status.setText(f"Upload failed: {error}" if error else "Uploaded. The cooler is playing it now.")
+        elif description.startswith("Restore background"):
+            # Sent automatically on connect (e.g. after a reboot); leave the upload controls alone.
+            self.background_status.setText(f"Couldn't restore the background: {error}" if error else "Restored after reconnecting.")
 
     def _update_preview(self) -> None:
         model = self.engine.model
